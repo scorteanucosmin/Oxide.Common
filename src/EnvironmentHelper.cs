@@ -10,33 +10,36 @@ namespace Oxide
         /// <summary>
         /// Gets a OxideMod environmental variable
         /// </summary>
-        /// <param name="key">The environmental variable</param>
-        /// <returns></returns>
+        /// <param name="key">The environmental variable key</param>
+        /// <returns>The environmental value</returns>
         public static string GetVariable(string key) => Environment.GetEnvironmentVariable(NormalizeKey(key));
 
         /// <summary>
         /// Sets a OxideMod environmental variable for the process
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="value"></param>
-        /// <param name="force"></param>
+        /// <remarks>
+        /// Setting forced to true will bypass throwOnExisting
+        /// </remarks>
+        /// <param name="key">The environmental variable key</param>
+        /// <param name="value">The environmental variable value</param>
+        /// <param name="throwOnExisting">The exception if the variable already exists</param>
+        /// <param name="force">Overwrite exist variable</param>
         /// <exception cref="InvalidOperationException"></exception>
-        public static void SetVariable(string key, string value, bool force = false)
+        public static void SetVariable(string key, string value, bool throwOnExisting = false, bool force = false)
         {
             key = NormalizeKey(key);
 
-            if (force)
-            {
-                Environment.SetEnvironmentVariable(key, value);
-                return;
-            }
-
-            string existingValue = Environment.GetEnvironmentVariable(key);
+            string existingValue = !force ? Environment.GetEnvironmentVariable(key) : null;
 
             if (existingValue != null)
             {
-                throw new InvalidOperationException(
-                    $"'{key}' has existing value of '{existingValue}' to override set 'force' to 'true'");
+                if (throwOnExisting)
+                {
+                    throw new InvalidOperationException(
+                        $"'{key}' has existing value of '{existingValue}' to override set 'force' to 'true'");
+                }
+
+                return;
             }
 
             Environment.SetEnvironmentVariable(key, value);
