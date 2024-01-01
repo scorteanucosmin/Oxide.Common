@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -34,6 +34,12 @@ namespace Oxide
 
         #region Enumberables
 
+        /// <summary>
+        /// Converts a IEnumerable into a <see cref="HashSet{T}"/>
+        /// </summary>
+        /// <param name="collection">The collection</param>
+        /// <typeparam name="T">The collection type</typeparam>
+        /// <returns>A populated <see cref="HashSet{T}"/></returns>
         public static HashSet<T> ToHashSet<T>(this IEnumerable<T> collection)
         {
             HashSet<T> set = new HashSet<T>();
