@@ -1,12 +1,103 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Oxide.Data.Formatters;
+using Oxide.Data.StorageDrivers;
 
 namespace Oxide
 {
     public static class ExtensionMethods
     {
+        #region Attributes
+
+        /// <summary>
+        /// Gets a collection of attributes of a specific type
+        /// </summary>
+        /// <param name="provider">The <see cref="ICustomAttributeProvider"/></param>
+        /// <param name="inherit">Should we search inherited attributes</param>
+        /// <typeparam name="T">Will lookup <typeparamref name="T"/></typeparam>
+        /// <returns>The array of <typeparamref name="T"/></returns>
+        public static T[] GetCustomAttributes<T>(this ICustomAttributeProvider provider, bool inherit) where T : Attribute
+        {
+            Type a = typeof(T);
+            return (T[])provider.GetCustomAttributes(a, inherit);
+        }
+
+        /// <summary>
+        /// Gets a single attribute of a specific type
+        /// </summary>
+        /// <param name="provider">The <see cref="ICustomAttributeProvider"/></param>
+        /// <param name="inherit">Should we search inherited attributes</param>
+        /// <typeparam name="T">Will lookup <typeparamref name="T"/></typeparam>
+        /// <returns>A single Will lookup <typeparamref name="T"/> or null</returns>
+        public static T GetCustomAttribute<T>(this ICustomAttributeProvider provider, bool inherit) where T : Attribute
+        {
+            object[] attributes = provider.GetCustomAttributes(typeof(T), inherit);
+            return attributes.Length > 0 ? (T)attributes[0] : null;
+        }
+
+        #endregion
+
+        #region Storage Drivers
+
+        /// <summary>
+        /// Converts a formattable storage item into another format
+        /// </summary>
+        /// <param name="store">The storage driver</param>
+        /// <param name="key">The key to lookup</param>
+        /// <param name="context">The graph type</param>
+        /// <param name="from">The format to convert from</param>
+        /// <param name="to">The format to convert to</param>
+        public static void ConvertTo(this IFormattableStorageDriver store, string key, Type context,
+            IDataFormatter from, IDataFormatter to) => MigrateTo(store, store, key, context, from, to);
+
+        /// <summary>
+        /// Migrate data item from one <see cref="IFormattableStorageDriver"/> to another <see cref="IFormattableStorageDriver"/>
+        /// </summary>
+        /// <param name="source">The source storage driver</param>
+        /// <param name="target">The target storage driver</param>
+        /// <param name="key">The key to lookup</param>
+        /// <param name="context">The graph type</param>
+        /// <param name="sourceFormat">The format to convert from</param>
+        /// <param name="targetFormat">The format to convert to</param>
+        public static void MigrateTo(this IFormattableStorageDriver source, IFormattableStorageDriver target,
+            string key, Type context, IDataFormatter sourceFormat, IDataFormatter targetFormat)
+        {
+            object data = source.Read(key, context, sourceFormat);
+            target.Write(key, context, targetFormat);
+        }
+
+        /// <summary>
+        /// Migrate data item from one <see cref="IStorageDriver"/> to a <see cref="IFormattableStorageDriver"/>
+        /// </summary>
+        /// <param name="source">The source storage driver</param>
+        /// <param name="target">The target storage driver</param>
+        /// <param name="key">The key to lookup</param>
+        /// <param name="context">The graph type</param>
+        /// <param name="format">The format to convert to</param>
+        public static void MigrateTo(this IStorageDriver source, IFormattableStorageDriver target, string key,
+            Type context, IDataFormatter format)
+        {
+            object data = source.Read(key, context);
+            target.Write(key, data, format);
+        }
+
+        /// <summary>
+        /// Migrate data item from one <see cref="IStorageDriver"/> to a <see cref="IStorageDriver"/>
+        /// </summary>
+        /// <param name="source">The source storage driver</param>
+        /// <param name="target">The target storage driver</param>
+        /// <param name="key">The key to lookup</param>
+        /// <param name="context">The graph type</param>
+        public static void MigrateTo(this IStorageDriver source, IStorageDriver target, string key, Type context)
+        {
+            object data = source.Read(key, context);
+            target.Write(key, data);
+        }
+
+        #endregion
+
         #region Metadata
 
         /// <summary>
