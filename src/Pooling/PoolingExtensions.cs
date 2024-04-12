@@ -7,6 +7,14 @@ namespace Oxide.Pooling
         #region Arrays
 
         /// <summary>
+        /// Gets a <see cref="IArrayPoolProvider{T}"/> from the factory
+        /// </summary>
+        /// <param name="factory"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static IArrayPoolProvider<T> GetArrayProvider<T>(this IPoolFactory factory) => factory.GetProvider<T[]>() as IArrayPoolProvider<T>;
+
+        /// <summary>
         /// Copies the source array to a pooled array of the same type
         /// </summary>
         /// <param name="provider">The pool provider to get the pooled array from</param>
@@ -65,6 +73,6 @@ namespace Oxide.Pooling
 
         #endregion
 
-        
+
     }
 }
