@@ -1,4 +1,5 @@
 ﻿using System;
+using Oxide.DependencyInjection;
 
 namespace Oxide.Pooling
 {
@@ -73,6 +74,20 @@ namespace Oxide.Pooling
 
         #endregion
 
+        #region Dependancy Injection
 
+        public static IArrayPoolProvider<T> GetArrayPoolProvider<T>(this IServiceProvider provider)
+        {
+            return provider.GetRequiredService<IPoolFactory>()
+                           .GetArrayProvider<T>();
+        }
+
+        public static IPoolProvider<T> GetPoolProvider<T>(this IServiceProvider provider)
+        {
+            return provider.GetRequiredService<IPoolFactory>()
+                           .GetProvider<T>();
+        }
+
+        #endregion
     }
 }
