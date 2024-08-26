@@ -7,6 +7,10 @@ namespace Oxide
     /// </summary>
     public static class EnvironmentHelper
     {
+        public const string SECTION_DELIMITER = ":";
+
+        public const string OXIDE_PREFIX = "OXIDE_";
+
         /// <summary>
         /// Gets a OxideMod environmental variable
         /// </summary>
@@ -53,16 +57,16 @@ namespace Oxide
                 return null;
             }
 
-            if (!key.StartsWith("oxide:", StringComparison.InvariantCultureIgnoreCase))
+            if (!key.StartsWith(OXIDE_PREFIX, StringComparison.InvariantCultureIgnoreCase))
             {
-                key = $"Oxide:{key}";
+                key = OXIDE_PREFIX + key;
             }
             else
             {
-                key = "Oxide:" + key.Substring(7);
+                key = OXIDE_PREFIX + key.Substring(6);
             }
 
-            return key;
+            return key.Replace(SECTION_DELIMITER, "__").ToUpperInvariant();
         }
     }
 }
