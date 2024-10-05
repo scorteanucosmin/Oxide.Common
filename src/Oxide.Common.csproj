@@ -25,7 +25,7 @@
       <PrivateAssets>contentfiles;analyzers;build</PrivateAssets>
     </PackageReference>
     <None Include="..\resources\icon.png" Pack="true" PackagePath="\" />
-    <PackageReference Include="PolySharp" Version="1.13.2">
+    <PackageReference Include="PolySharp" Version="1.14.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
