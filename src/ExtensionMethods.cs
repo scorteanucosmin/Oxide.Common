@@ -48,6 +48,27 @@ namespace Oxide
 
         #endregion
 
+        #region Conversions
+
+        public static int ToArray(this int value, byte[] array, int startPos)
+        {
+            array[startPos] = (byte)(value >> 24);
+            array[startPos + 1] = (byte)(value >> 16);
+            array[startPos + 2] = (byte)(value >> 8);
+            array[startPos + 3] = (byte)value;
+            return sizeof(int);
+        }
+
+        public static int ReadInt(this byte[] array, int startPos)
+        {
+            return (array[startPos] << 24) |
+                (array[startPos + 1] << 16) |
+                (array[startPos + 2] << 8) |
+                array[startPos + 3];
+        }
+
+        #endregion
+
         #region Collections
 
 #if NETFRAMEWORK || NETSTANDARD2_0

@@ -36,6 +36,12 @@ namespace Oxide.IO
         public virtual T Receive<T>() where T : TMessage
         {
             string data = Protocol.Receive();
+
+            if (string.IsNullOrEmpty(data))
+            {
+                return default;
+            }
+
             return Serializer.Deserialize<T>(data);
         }
     }
