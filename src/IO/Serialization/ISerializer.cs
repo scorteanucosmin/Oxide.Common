@@ -1,24 +1,24 @@
 ﻿namespace Oxide.IO.Serialization
 {
     /// <summary>
-    /// Interface used to convert objects to and from string format
+    /// Used to convert <typeparamref name="T0"/> and <typeparamref name="T1"/>
     /// </summary>
-    public interface ISerializer
+    /// <typeparam name="T0">The type converting from</typeparam>
+    /// <typeparam name="T1">The type converting to</typeparam>
+    public interface ISerializer<T0, T1>
     {
         /// <summary>
-        /// Serializes the object to serialization string
+        /// Serializes the <typeparamref name="T0"/>
         /// </summary>
-        /// <typeparam name="T">The <see langword="type"/> to model the string from</typeparam>
-        /// <param name="obj">The object instance</param>
+        /// <param name="obj">The object to serialize</param>
         /// <returns>The serialized object</returns>
-        string Serialize<T>(T obj);
+        T1 Serialize(T0 obj);
 
         /// <summary>
-        /// Deserializes a serialized string back into a given type
+        /// Deserializes the <typeparamref name="T1"/>
         /// </summary>
-        /// <typeparam name="T">The <see langword="type"/> model to deseriaize to</typeparam>
-        /// <param name="obj">The serialization <see langword="string"/></param>
-        /// <returns>The <typeparamref name="T"/></returns>
-        T Deserialize<T>(string obj);
+        /// <param name="data">The data to deserialize</param>
+        /// <returns>The deserialized object</returns>
+        T0 Deserialize(T1 data);
     }
 }

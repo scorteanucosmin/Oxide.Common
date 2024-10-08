@@ -50,21 +50,32 @@ namespace Oxide
 
         #region Conversions
 
-        public static int ToArray(this int value, byte[] array, int startPos)
+        public static int WriteBigEndian(this int value, byte[] array, int startPos = 0)
         {
-            array[startPos] = (byte)(value >> 24);
+            array[startPos]     = (byte)(value >> 24);
             array[startPos + 1] = (byte)(value >> 16);
             array[startPos + 2] = (byte)(value >> 8);
             array[startPos + 3] = (byte)value;
             return sizeof(int);
         }
 
-        public static int ReadInt(this byte[] array, int startPos)
+        public static int ReadBigEndian(this byte[] array, int startPos = 0)
         {
-            return (array[startPos] << 24) |
-                (array[startPos + 1] << 16) |
-                (array[startPos + 2] << 8) |
-                array[startPos + 3];
+            return (array[startPos] << 24) | (array[startPos + 1] << 16) | (array[startPos + 2] << 8) | array[startPos + 3];
+        }
+
+        public static int WriteLittleEndian(this int value, byte[] array, int startPos = 0)
+        {
+            array[startPos] = (byte)value;
+            array[startPos + 1] = (byte)(value >> 8);
+            array[startPos + 2] = (byte)(value >> 16);
+            array[startPos + 3] = (byte)(value >> 24);
+            return sizeof(int);
+        }
+
+        public static int ReadLittleEndian(this byte[] array, int startPos = 0)
+        {
+            return array[startPos] | (array[startPos + 1] << 8) | (array[startPos + 2] << 16) | (array[startPos + 3] << 24);
         }
 
         #endregion
