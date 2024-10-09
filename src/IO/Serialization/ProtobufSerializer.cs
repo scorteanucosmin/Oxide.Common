@@ -77,7 +77,7 @@ namespace Oxide.IO.Serialization
 
             var metaType = model.Add(type, false);
 
-            int fieldNumber = 0;
+            int fieldNumber = 1;
             foreach (PropertyInfo property in type.GetProperties())
             {
                 if (property.IsSpecialName || !property.CanWrite || property.GetGetMethod().IsStatic)
@@ -85,8 +85,8 @@ namespace Oxide.IO.Serialization
                     continue;
                 }
 
-                metaType.AddField(fieldNumber++, property.Name);
-
+                metaType.AddField(fieldNumber, property.Name);
+                fieldNumber += 1;
                 if (property.PropertyType.IsGenericType)
                 {
                     foreach (Type generic in property.PropertyType.GetGenericArguments())
