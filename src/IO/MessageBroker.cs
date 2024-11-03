@@ -183,6 +183,7 @@ namespace Oxide.IO
                 Disposed = true;
                 if (disposing)
                 {
+                    MessageQueue.Clear();
                     if (Receiever is IDisposable rDispose)
                     {
                         rDispose.Dispose();
@@ -197,8 +198,6 @@ namespace Oxide.IO
                     {
                         fDispose.Dispose();
                     }
-
-                    MessageQueue.Clear();
                 }
 
                 try
