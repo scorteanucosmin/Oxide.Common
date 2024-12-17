@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Oxide
 {
@@ -137,6 +139,34 @@ namespace Oxide
         }
 
 #endif
+
+        #endregion
+
+        #region Spans
+
+#if NET48
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Write(this MemoryStream stream, ReadOnlySpan<byte> buffer)
+        {
+            int currentPosition = (int)stream.Position;
+            int requiredSize = currentPosition + buffer.Length;
+
+            if (stream.Capacity < requiredSize)
+            {
+                stream.Capacity = requiredSize;
+            }
+
+            buffer.CopyTo(stream.GetBuffer().AsSpan(currentPosition, buffer.Length));
+            stream.Position += buffer.Length;
+
+            if (requiredSize > stream.Length)
+            {
+                stream.SetLength(requiredSize);
+            }
+        }
+
+        #endif
 
         #endregion
     }

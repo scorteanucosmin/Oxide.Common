@@ -16,7 +16,9 @@ namespace Oxide.IO
 
         private ITransportTransmitter Transmitter { get; }
 
-        private ISerializer<TMessage, byte[]> Formatter { get; }
+        private ISerializer<byte[], TMessage> Serializer { get; }
+
+        private IDeserializer<TMessage, byte[]> Deserializer { get; }
 
         private IArrayPool<byte> Pool { get; }
 
@@ -28,11 +30,12 @@ namespace Oxide.IO
 
         private volatile bool running;
 
-        public MessageBroker(ITransportTransmitter transmitter, ITransportReceiver receiver, ISerializer<TMessage, byte[]> formatter = null, IArrayPool<byte> pool = null)
+        public MessageBroker(ITransportTransmitter transmitter, ITransportReceiver receiver, ISerializer<byte[], TMessage> serializer, IDeserializer<TMessage, byte[]> deserializer, IArrayPool<byte> pool = null)
         {
             Transmitter = transmitter ?? throw new ArgumentNullException(nameof(transmitter));
             Receiever = receiver ?? throw new ArgumentNullException(nameof(receiver));
-            Formatter = formatter ?? new ProtobufSerializer<TMessage>(PoolFactory<MemoryStream>.Shared);
+            Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+            Deserializer = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
             Pool = pool ?? ArrayPool<byte>.Shared;
             MessageQueue = new Queue<TMessage>();
             running = true;
@@ -62,7 +65,8 @@ namespace Oxide.IO
 
         private void WriteMessage(TMessage message)
         {
-            byte[] data = Formatter.Serialize(message);
+            Span<byte> data = new Span<byte>()
+            byte[] data = Serializer.Serialize(message);
             byte[] payload = Pool.Take(data.Length + sizeof(int));
 
             try
@@ -103,7 +107,7 @@ namespace Oxide.IO
                         read += Receiever.Read(buffer, read, length - read);
                     }
 
-                    return Formatter.Deserialize(buffer);
+                    return Deserializer.Deserialize(buffer);
                 }
                 finally
                 {
@@ -194,9 +198,14 @@ namespace Oxide.IO
                         tDispose.Dispose();
                     }
 
-                    if (Formatter is IDisposable fDispose)
+                    if (Serializer is IDisposable sDispose)
                     {
-                        fDispose.Dispose();
+                        sDispose.Dispose();
+                    }
+
+                    if (Deserializer is IDisposable dDispose)
+                    {
+                        dDispose.Dispose();
                     }
                 }
 

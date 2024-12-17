@@ -1,24 +1,20 @@
-﻿namespace Oxide.IO.Serialization
+﻿using System;
+
+namespace Oxide.IO.Serialization
 {
     /// <summary>
-    /// Used to convert <typeparamref name="T0"/> and <typeparamref name="T1"/>
+    /// Used to serialize <typeparamref name="T1"/> to <typeparamref name="T0"/>
     /// </summary>
-    /// <typeparam name="T0">The type converting from</typeparam>
-    /// <typeparam name="T1">The type converting to</typeparam>
+    /// <typeparam name="T0">The type serializing to</typeparam>
+    /// <typeparam name="T1">The type to serialize</typeparam>
     public interface ISerializer<T0, T1>
     {
         /// <summary>
-        /// Serializes the <typeparamref name="T0"/>
+        /// Serializes <typeparamref name="T1"/> to <typeparamref name="T0"/>
         /// </summary>
-        /// <param name="obj">The object to serialize</param>
-        /// <returns>The serialized object</returns>
-        T1 Serialize(T0 obj);
-
-        /// <summary>
-        /// Deserializes the <typeparamref name="T1"/>
-        /// </summary>
-        /// <param name="data">The data to deserialize</param>
-        /// <returns>The deserialized object</returns>
-        T0 Deserialize(T1 data);
+        /// <param name="obj">The <typeparamref name="T1"/> to serialize</param>
+        /// <param name="outputBuffer"></param>
+        /// <returns>The serialized data</returns>
+        void Serialize(T1 obj, Span<T0> outputBuffer);
     }
 }

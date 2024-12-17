@@ -1,4 +1,6 @@
-﻿namespace Oxide.IO.TransportMethods
+﻿using System;
+
+namespace Oxide.IO.TransportMethods
 {
     /// <summary>
     /// Reads messages from a underlying stream
@@ -12,6 +14,6 @@
         /// <param name="index">The position in the buffer to start reading</param>
         /// <param name="count">The amount of bytes to read</param>
         /// <returns>The amound of bytes read</returns>
-        int Read(byte[] buffer, int index, int count);
+        int Read(Span<byte> buffer, int index, int count);
     }
 }
