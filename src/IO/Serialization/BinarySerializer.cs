@@ -1,164 +1,104 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Oxide.IO.Serialization
 {
-    public sealed class BinarySerializer<T> : ISerializer<byte[], T>, IDeserializer<T, byte[]>, IDisposable where T : class
+    public sealed class BinarySerializer<T> : ISerializer<T, byte>, IDeserializer<T, byte> where T : class
     {
+        private static Dictionary<MemberInfo, KeyValuePair<Func<object, object>, Action<object, object>>> GettersSetters { get; }
+
         private static Dictionary<MemberInfo, TypeConverter> ConverterCache { get; }
 
         private static List<MemberInfo> SerializableMembers { get; }
 
-
-        private bool disposedValue;
-
-        private MemoryStream MemoryStream { get; }
-
-        private byte[] Buffer { get; }
+        private Encoding Encoder { get; }
 
         #region Constructor & Dispose
 
         static BinarySerializer()
         {
+            GettersSetters = new Dictionary<MemberInfo, KeyValuePair<Func<object, object>, Action<object, object>>>();
             SerializableMembers = new List<MemberInfo>();
             ConverterCache = new Dictionary<MemberInfo, TypeConverter>();
-
-            IEnumerable<MemberInfo> members = typeof(T).GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Where(m => Attribute.IsDefined(m, typeof(IgnoreDataMemberAttribute)));
-            SerializableMembers.AddRange(members);
         }
 
-        public BinarySerializer(int bufferSize = 4096)
+        public BinarySerializer(Encoding encoding = null)
         {
-            Buffer = new byte[bufferSize];
-            MemoryStream = new MemoryStream(Buffer);
-            BinaryWriter = new BinaryWriter(MemoryStream, Encoding.UTF8, true);
-            BinaryReader = new BinaryReader(MemoryStream, Encoding.UTF8, true);
-        }
-
-        ~BinarySerializer()
-        {
-            Dispose(disposing: false);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    BinaryReader.Dispose();
-                    BinaryWriter.Dispose();
-                    MemoryStream.Dispose();
-                }
-
-                disposedValue = true;
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
+            Encoder = encoding ?? Encoding.UTF8;
         }
 
         #endregion
 
         #region Serializer
 
-        private BinaryWriter BinaryWriter { get; }
 
-        public void Serialize(T obj, Span<byte> outputBuffer)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int Serialize(T obj, Span<byte> outputBuffer)
         {
             if (obj == null)
             {
                 throw new ArgumentNullException(nameof(obj));
             }
 
-            lock (MemoryStream)
-            {
-                try
-                {
-                    SerializeObject(BinaryWriter, obj);
-                    BinaryWriter.Flush();
-                    MemoryStream.GetBuffer().AsSpan(0, (int)MemoryStream.Length).CopyTo(outputBuffer);
-                }
-                finally
-                {
-                    MemoryStream.SetLength(0);
-                }
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SerializeObject(BinaryWriter writer, T obj)
-        {
+            int offset = 0;
             foreach (MemberInfo member in SerializableMembers)
             {
-                Type memberType = GetMemberType(member);
                 object val = GetValue(member, obj);
-                TypeConverter converter = GetCachedConverter(member, memberType);
+                TypeConverter converter = GetCachedConverter(member);
+
                 if (converter.CanConvertTo(typeof(string)))
                 {
-                    if (val == null)
+                    string serializedValue = val == null ? string.Empty : converter.ConvertToInvariantString(val) ?? string.Empty;
+                    int requiredBytes = Encoder.GetByteCount(serializedValue);
+
+                    if (offset + requiredBytes > outputBuffer.Length)
                     {
-                        writer.Write(string.Empty);
+                        throw new ArgumentException($"Output buffer is too small. Required: {offset + requiredBytes}, Available: {outputBuffer.Length}");
                     }
-                    else
-                    {
-                        string serializedValue = converter.ConvertToInvariantString(val);
-                        writer.Write(serializedValue ?? string.Empty);
-                    }
+
+                    outputBuffer.WriteLengthPrefix(requiredBytes, ref offset);
+                    int encodedData = Encoder.GetBytes(serializedValue.AsSpan(), outputBuffer.Slice(offset));
+                    offset += encodedData;
                 }
                 else
                 {
-                    throw new NotSupportedException($"Member type {memberType} does not have a TypeConverter that converts to string");
+                    throw new NotSupportedException($"Member {member} does not have a TypeConverter that converts to string");
                 }
             }
+
+            return offset;
         }
 
         #endregion
 
         #region Deserializer
 
-        private BinaryReader BinaryReader { get; }
-
-        public T Deserialize(ReadOnlySpan<byte> inputBuffer)
-        {
-            lock (MemoryStream)
-            {
-                try
-                {
-                    MemoryStream.Write(inputBuffer);
-                    MemoryStream.Position = 0;
-                    return DeserializeObject(BinaryReader);
-                }
-                finally
-                {
-                    MemoryStream.SetLength(0);
-                }
-            }
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private T DeserializeObject(BinaryReader reader)
+        public T Deserialize(ReadOnlySpan<byte> inputBuffer, T existingInstance = null)
         {
-            T instance = Activator.CreateInstance<T>();
+            existingInstance ??= Activator.CreateInstance<T>();
+            int offset = 0;
 
             foreach (MemberInfo member in SerializableMembers)
             {
-                Type memberType = GetMemberType(member);
-                TypeConverter converter = TypeDescriptor.GetConverter(memberType);
-                string serializedValue = BinaryReader.ReadString();
+                TypeConverter converter = GetCachedConverter(member);
+                int strLen = inputBuffer.ToInt32(offset);
+                offset += sizeof(int);
+                string serializedValue = strLen > 0
+                    ? Encoder.GetString(inputBuffer.Slice(offset, strLen))
+                    : string.Empty;
+                offset += strLen;
+
                 object val = null;
+
                 if (!string.IsNullOrEmpty(serializedValue))
                 {
                     if (converter.CanConvertFrom(typeof(string)))
@@ -167,42 +107,41 @@ namespace Oxide.IO.Serialization
                     }
                     else
                     {
-                        throw new NotSupportedException($"Member type {memberType} does not have a TypeConverter that converts from string");
+                        throw new NotSupportedException($"Member {member} does not have a TypeConverter that converts from string");
                     }
                 }
-                SetValue(member, instance, val);
+
+                SetValue(member, existingInstance, val);
             }
 
-            return instance;
+            return existingInstance;
         }
 
         #endregion
 
         #region Helpers
 
-        private static object GetValue(MemberInfo member, T obj) => member switch
+        private static object GetValue(MemberInfo member, T obj)
         {
-            PropertyInfo prop => prop.GetValue(obj),
-            FieldInfo field => field.GetValue(obj),
-            _ => null
-        };
+            if (!GettersSetters.TryGetValue(member, out var gs))
+            {
+                CompileMember(member);
+                return GetValue(member, obj);
+            }
+
+            return gs.Key(obj);
+        }
 
         private static void SetValue(MemberInfo member, T obj, object value)
         {
-            switch (member)
+            if (!GettersSetters.TryGetValue(member, out var gs))
             {
-                case PropertyInfo property when property.CanWrite:
-                    property.SetValue(obj, value);
-                    break;
-
-                case PropertyInfo property when !property.CanWrite:
-                    SetValue(GetBackingField(property), obj, value);
-                    break;
-
-                case FieldInfo field:
-                    field.SetValue(obj, value);
-                    break;
+                CompileMember(member);
+                SetValue(member, obj, value);
+                return;
             }
+
+            gs.Value(obj, value);
         }
 
         private static Type GetMemberType(MemberInfo member)
@@ -227,10 +166,11 @@ namespace Oxide.IO.Serialization
             return underlying ?? type;
         }
 
-        private static TypeConverter GetCachedConverter(MemberInfo member, Type memberType)
+        private static TypeConverter GetCachedConverter(MemberInfo member)
         {
             if (!ConverterCache.TryGetValue(member, out TypeConverter converter))
             {
+                Type memberType = GetMemberType(member);
                 converter = TypeDescriptor.GetConverter(memberType);
                 ConverterCache[member] = converter;
             }
@@ -242,6 +182,130 @@ namespace Oxide.IO.Serialization
         {
             string name = $"<{property.Name}>k__BackingField";
             return property.DeclaringType.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+        }
+
+        private static Func<object, object> CompileGetter(MemberInfo member)
+        {
+            ParameterExpression instance = Expression.Parameter(typeof(object), "instance");
+            UnaryExpression instanceCast = Expression.Convert(instance, member.DeclaringType);
+
+            Expression memberAccess = member switch
+            {
+                PropertyInfo property => Expression.Property(instanceCast, property),
+                FieldInfo field => Expression.Field(instanceCast, field),
+                _ => throw new NotSupportedException($"Unsupported member type: {member.MemberType}")
+            };
+
+            UnaryExpression convert = Expression.Convert(memberAccess, typeof(object));
+            return Expression.Lambda<Func<object, object>>(convert, instance).Compile();
+        }
+
+        private static Action<object, object> CompileSetter(MemberInfo member)
+        {
+            if (member is PropertyInfo prop && !prop.CanWrite)
+            {
+                FieldInfo backingField = GetBackingField(prop);
+
+                if (backingField != null)
+                {
+                    return backingField.SetValue;
+                }
+                else
+                {
+                    throw new ArgumentException("Property is not writable, either make it writable or add IgnoreDataMemberAttribute", nameof(member));
+                }
+            }
+
+            ParameterExpression instance = Expression.Parameter(typeof(object), "instance");
+            ParameterExpression value = Expression.Parameter(typeof(object), "value");
+            UnaryExpression instanceCast = Expression.Convert(instance, member.DeclaringType);
+            UnaryExpression valueCast;
+            Expression setter;
+
+            if (member is PropertyInfo property)
+            {
+                valueCast = Expression.Convert(value, property.PropertyType);
+                setter = Expression.Call(instanceCast, property.SetMethod, valueCast);
+            }
+            else if (member is FieldInfo field)
+            {
+                valueCast = Expression.Convert(value, field.FieldType);
+                setter = Expression.Assign(Expression.Field(instanceCast, field), valueCast);
+            }
+            else
+            {
+                throw new NotSupportedException("Only properties and fields are supported");
+            }
+
+            return Expression.Lambda<Action<object, object>>(setter, instance, value).Compile();
+        }
+
+        public static void Compile()
+        {
+            Type type = typeof(T);
+
+            IEnumerable<MemberInfo> members = type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(m => (m.MemberType == MemberTypes.Property || m.MemberType == MemberTypes.Field) && !Attribute.IsDefined(m, typeof(IgnoreDataMemberAttribute)));
+
+            ConverterCache.Clear();
+            SerializableMembers.Clear();
+
+            foreach (MemberInfo member in members)
+            {
+                CompileMember(member);
+            }
+        }
+
+        private static void CompileMember(MemberInfo member)
+        {
+
+            if (member.MemberType != MemberTypes.Property && member.MemberType != MemberTypes.Field)
+            {
+                throw new ArgumentException("Only Fields and Properties are supported", nameof(member));
+            }
+
+            if (member.IsDefined(typeof(IgnoreDataMemberAttribute)))
+            {
+                throw new ArgumentException("Unable to compile properties with `IgnoreDataMemberAttribute`", nameof(member));
+            }
+
+            Type memberType;
+            if (member is PropertyInfo property)
+            {
+                memberType = property.PropertyType;
+
+                if (property.GetMethod.IsStatic)
+                {
+                    throw new ArgumentException("Member must be a instance member", nameof(member));
+                }
+            }
+            else
+            {
+                FieldInfo field = member as FieldInfo;
+
+                if (field.IsInitOnly)
+                {
+                    return;
+                }
+
+                memberType = field.FieldType;
+
+                if (field.IsStatic)
+                {
+                    throw new ArgumentException("Member must be a instance member", nameof(member));
+                }
+            }
+
+            
+            Func<object, object> getter = CompileGetter(member);
+            Action<object, object> setter = CompileSetter(member);
+            GettersSetters[member] = new(getter, setter);
+            ConverterCache[member] = TypeDescriptor.GetConverter(memberType);
+
+            if (!SerializableMembers.Contains(member))
+            {
+                SerializableMembers.Add(member);
+            }
         }
 
         #endregion

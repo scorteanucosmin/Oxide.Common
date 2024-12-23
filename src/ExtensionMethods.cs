@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Oxide
 {
@@ -166,7 +167,84 @@ namespace Oxide
             }
         }
 
+        public static int GetBytes(this Encoding encoding, ReadOnlySpan<char> chars, Span<byte> bytes)
+        {
+            if (encoding == null)
+            {
+                throw new ArgumentNullException(nameof(encoding));
+            }
+
+            if (chars.IsEmpty)
+            {
+                return 0;
+            }
+
+            unsafe
+            {
+                fixed (char* charPtr = chars)
+                fixed (byte* bytePtr = bytes)
+                {
+                    return encoding.GetBytes(charPtr, chars.Length, bytePtr, bytes.Length);
+                }
+            }
+        }
+
+        public static string GetString(this Encoding encoding, ReadOnlySpan<byte> span)
+        {
+            if (encoding == null)
+            {
+                throw new ArgumentNullException(nameof(encoding));
+            }
+
+            if (span.IsEmpty)
+            {
+                return string.Empty;
+            }
+
+            unsafe
+            {
+                fixed (byte* bytePtr = span)
+                {
+                    return encoding.GetString(bytePtr, span.Length);
+                }
+            }
+        }
+
         #endif
+
+        public static int ToInt32(this ReadOnlySpan<byte> span, int offset = 0)
+        {
+            if (offset + sizeof(int) > span.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(span), "Not enough data in span to read an integer");
+            }
+
+            unsafe
+            {
+                fixed (byte* ptr = span.Slice(offset))
+                {
+                    return *(int*)ptr;
+                }
+            }
+        }
+
+        public static void WriteLengthPrefix(this Span<byte> span, int value, ref int offset)
+        {
+            if (offset + sizeof(int) > span.Length)
+            {
+                throw new ArgumentException("Not enough space in span to write length prefix", nameof(span));
+            }
+
+            unsafe
+            {
+                fixed (byte* ptr = span.Slice(offset, sizeof(int)))
+                {
+                    *(int*)ptr = value;
+                }
+            }
+
+            offset += sizeof(int);
+        }
 
         #endregion
     }

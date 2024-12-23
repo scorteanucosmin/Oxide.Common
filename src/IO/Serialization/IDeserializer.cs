@@ -13,7 +13,8 @@ namespace Oxide.IO.Serialization
         /// Deserializes the <typeparamref name="T1"/>
         /// </summary>
         /// <param name="inputBuffer">The data to deserialize</param>
+        /// <param name="defaultInstance">A existing instance to use instead of creating a new one</param>
         /// <returns>The deserialized object</returns>
-        T0 Deserialize(ReadOnlySpan<T1> inputBuffer);
+        T0 Deserialize(ReadOnlySpan<T1> inputBuffer, T0 defaultInstance = default);
     }
 }
