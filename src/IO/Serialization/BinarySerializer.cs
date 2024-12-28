@@ -1,22 +1,44 @@
-﻿using System;
+﻿extern alias References;
+using References::Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace Oxide.IO.Serialization
+namespace Oxide.IO.Serialization.Binary
 {
     public sealed class BinarySerializer<T> : ISerializer<T, byte>, IDeserializer<T, byte> where T : class
     {
-        private static Dictionary<MemberInfo, KeyValuePair<Func<object, object>, Action<object, object>>> GettersSetters { get; }
+        private class MemberMap
+        {
+            public MemberInfo Member { get; }
 
-        private static Dictionary<MemberInfo, TypeConverter> ConverterCache { get; }
+            public Func<object, object> Getter { get; }
 
-        private static List<MemberInfo> SerializableMembers { get; }
+            public Action<object, object> Setter { get; }
+
+            public TypeConverter Converter { get; }
+
+            public Type MemberType { get; }
+
+            public MemberMap(MemberInfo member, Type memberType, Func<object, object> getter, Action<object, object> setter, TypeConverter converter)
+            {
+                Member = member;
+                MemberType = memberType;
+                Getter = getter;
+                Setter = setter;
+                Converter = converter;
+            }
+        }
+
+        private static List<MemberMap> MemberMaps { get; }
 
         private Encoding Encoder { get; }
 
@@ -24,9 +46,8 @@ namespace Oxide.IO.Serialization
 
         static BinarySerializer()
         {
-            GettersSetters = new Dictionary<MemberInfo, KeyValuePair<Func<object, object>, Action<object, object>>>();
-            SerializableMembers = new List<MemberInfo>();
-            ConverterCache = new Dictionary<MemberInfo, TypeConverter>();
+            MemberMaps = new List<MemberMap>();
+            Compile();
         }
 
         public BinarySerializer(Encoding encoding = null)
@@ -47,33 +68,95 @@ namespace Oxide.IO.Serialization
                 throw new ArgumentNullException(nameof(obj));
             }
 
-            int offset = 0;
-            foreach (MemberInfo member in SerializableMembers)
+            int total = 0;
+            foreach (var map in MemberMaps)
             {
-                object val = GetValue(member, obj);
-                TypeConverter converter = GetCachedConverter(member);
+                object val = GetValue(map, obj);
+                int writeSize = sizeof(int);
 
-                if (converter.CanConvertTo(typeof(string)))
+                if (val != null)
                 {
-                    string serializedValue = val == null ? string.Empty : converter.ConvertToInvariantString(val) ?? string.Empty;
-                    int requiredBytes = Encoder.GetByteCount(serializedValue);
+                    var type = val.GetType();
 
-                    if (offset + requiredBytes > outputBuffer.Length)
+                    if (type.IsPrimitive || type.IsValueType)
                     {
-                        throw new ArgumentException($"Output buffer is too small. Required: {offset + requiredBytes}, Available: {outputBuffer.Length}");
-                    }
+                        int size = Marshal.SizeOf(type);
+                        
+                        if (size + sizeof(int) > outputBuffer.Length)
+                        {
+                            throw new ArgumentException($"Destination span is too small. Required: {sizeof(int) + size}, Available: {outputBuffer.Length}", nameof(outputBuffer));
+                        }
 
-                    outputBuffer.WriteLengthPrefix(requiredBytes, ref offset);
-                    int encodedData = Encoder.GetBytes(serializedValue.AsSpan(), outputBuffer.Slice(offset));
-                    offset += encodedData;
+
+                        GCHandle handle = GCHandle.Alloc(val, GCHandleType.Pinned);
+
+                        try
+                        {
+                            IntPtr ptr = handle.AddrOfPinnedObject();
+                            Span<byte> source;
+
+                            unsafe
+                            {
+                                source = new Span<byte>(ptr.ToPointer(), size);
+                            }
+
+                            outputBuffer = outputBuffer.Write(size);
+                            source.CopyTo(outputBuffer);
+                            outputBuffer = outputBuffer[size..];
+                            writeSize += size;
+                        }
+                        finally
+                        {
+                            handle.Free();
+                        }
+                    }
+                    else if (map.MemberType == typeof(string))
+                    {
+                        var strValue = ((string)val).AsSpan();
+                        int size = Encoder.GetByteCount(strValue);
+
+                        if (sizeof(int) + size > outputBuffer.Length)
+                        {
+                            throw new ArgumentException($"Destination span is too small. Required: {sizeof(int) + size}, Available: {outputBuffer.Length}", nameof(outputBuffer));
+                        }
+
+                        outputBuffer = outputBuffer.Write(size);
+                        outputBuffer = outputBuffer.Write(strValue, Encoder);
+                        writeSize += size;
+                    }
+                    else if (map.Converter.CanConvertTo(typeof(byte[])))
+                    {
+                        byte[] byteVal = (byte[])map.Converter.ConvertTo(val, typeof(byte[]));
+
+                        if (sizeof(int) + byteVal.Length > outputBuffer.Length)
+                        {
+                            throw new ArgumentException($"Destination span is too small. Required: {sizeof(int) + byteVal.Length}, Available: {outputBuffer.Length}", nameof(outputBuffer));
+                        }
+
+                        outputBuffer = outputBuffer.Write(byteVal.Length);
+                        byteVal.CopyTo(outputBuffer);
+                        outputBuffer = outputBuffer[byteVal.Length..];
+                        writeSize += byteVal.Length;
+                    }
+                    else
+                    {
+                        throw new NotSupportedException($"Member {map.Member} is not supported. Either decorate it with IgnoreDataMember or create a TypeConverter to convert it to bytes");
+                    }
                 }
                 else
                 {
-                    throw new NotSupportedException($"Member {member} does not have a TypeConverter that converts to string");
+                    if (sizeof(int) > outputBuffer.Length)
+                    {
+                        throw new ArgumentException($"Destination span is too small. Required: {sizeof(int)}, Available: {outputBuffer.Length}", nameof(outputBuffer));
+                    }
+
+                    outputBuffer = outputBuffer.Write(0);
                 }
+
+                total += writeSize;
             }
 
-            return offset;
+            return total;
         }
 
         #endregion
@@ -85,33 +168,78 @@ namespace Oxide.IO.Serialization
         public T Deserialize(ReadOnlySpan<byte> inputBuffer, T existingInstance = null)
         {
             existingInstance ??= Activator.CreateInstance<T>();
-            int offset = 0;
 
-            foreach (MemberInfo member in SerializableMembers)
+            foreach (var map in MemberMaps)
             {
-                TypeConverter converter = GetCachedConverter(member);
-                int strLen = inputBuffer.ToInt32(offset);
-                offset += sizeof(int);
-                string serializedValue = strLen > 0
-                    ? Encoder.GetString(inputBuffer.Slice(offset, strLen))
-                    : string.Empty;
-                offset += strLen;
-
-                object val = null;
-
-                if (!string.IsNullOrEmpty(serializedValue))
+                if (sizeof(int) > inputBuffer.Length)
                 {
-                    if (converter.CanConvertFrom(typeof(string)))
+                    throw new ArgumentException($"Input buffer is too small to read length prefix. Required: {sizeof(int)} | Actual: {inputBuffer.Length}", nameof(inputBuffer));
+                }
+
+                int size = inputBuffer.Length;
+                var workingSpan = inputBuffer[sizeof(int)..];
+
+                if (size > workingSpan.Length)
+                {
+                    throw new ArgumentException($"Input buffer is too small to read {map.MemberType}. Required: {size} | Actual: {workingSpan.Length}", nameof(workingSpan));
+                }
+
+                workingSpan = workingSpan[..size];
+
+                if (size > 0)
+                {
+                    if (map.MemberType.IsPrimitive || map.MemberType.IsValueType)
                     {
-                        val = converter.ConvertFromInvariantString(serializedValue);
+                        object value = Activator.CreateInstance(map.MemberType);
+                        GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
+
+                        try
+                        {
+                            IntPtr ptr = handle.AddrOfPinnedObject();
+                            unsafe
+                            {
+                                workingSpan.CopyTo(new Span<byte>(ptr.ToPointer(), size));
+                            }
+                            SetValue(map, existingInstance, value);
+                            inputBuffer = inputBuffer[(sizeof(int) + size)..];
+                        }
+                        finally
+                        {
+                            handle.Free();
+                        }
+                    }
+                    else if (map.MemberType == typeof(string))
+                    {
+                        string strValue = Encoder.GetString(workingSpan);
+
+                        SetValue(map, existingInstance, strValue);
+                        inputBuffer = inputBuffer[(sizeof(int) + size)..];
+                    }
+                    else if (map.Converter.CanConvertFrom(typeof(byte[])))
+                    {
+                        byte[] data = new byte[size];
+                        workingSpan.CopyTo(data);
+                        object convertedValue = map.Converter.ConvertFrom(data);
+                        SetValue(map, existingInstance, convertedValue);
+                        inputBuffer = inputBuffer[(sizeof(int) + size)..];
                     }
                     else
                     {
-                        throw new NotSupportedException($"Member {member} does not have a TypeConverter that converts from string");
+                        throw new NotSupportedException($"Member {map.Member} is not supported. Either decorate it with IgnoreDataMember or create a TypeConverter to convert it from bytes");
                     }
                 }
+                else
+                {
+                    object value = null;
 
-                SetValue(member, existingInstance, val);
+                    if (map.MemberType.IsPrimitive || map.MemberType.IsValueType)
+                    {
+                        value = Activator.CreateInstance(map.MemberType);
+                    }
+
+                    SetValue(map, existingInstance, value);
+                    inputBuffer = inputBuffer[sizeof(int)..];
+                }
             }
 
             return existingInstance;
@@ -121,61 +249,11 @@ namespace Oxide.IO.Serialization
 
         #region Helpers
 
-        private static object GetValue(MemberInfo member, T obj)
+        private static object GetValue(MemberMap map, T obj) => map.Getter(obj);
+
+        private static void SetValue(MemberMap map, T obj, object value)
         {
-            if (!GettersSetters.TryGetValue(member, out var gs))
-            {
-                CompileMember(member);
-                return GetValue(member, obj);
-            }
-
-            return gs.Key(obj);
-        }
-
-        private static void SetValue(MemberInfo member, T obj, object value)
-        {
-            if (!GettersSetters.TryGetValue(member, out var gs))
-            {
-                CompileMember(member);
-                SetValue(member, obj, value);
-                return;
-            }
-
-            gs.Value(obj, value);
-        }
-
-        private static Type GetMemberType(MemberInfo member)
-        {
-            Type type;
-            switch (member)
-            {
-                case PropertyInfo property:
-                    type = property.PropertyType;
-                    break;
-
-                case FieldInfo field:
-                    type = field.FieldType;
-                    break;
-
-                default:
-                    return null;
-            }
-
-            Type underlying = Nullable.GetUnderlyingType(type);
-
-            return underlying ?? type;
-        }
-
-        private static TypeConverter GetCachedConverter(MemberInfo member)
-        {
-            if (!ConverterCache.TryGetValue(member, out TypeConverter converter))
-            {
-                Type memberType = GetMemberType(member);
-                converter = TypeDescriptor.GetConverter(memberType);
-                ConverterCache[member] = converter;
-            }
-
-            return converter;
+            map.Setter(obj, value);
         }
 
         private static FieldInfo GetBackingField(PropertyInfo property)
@@ -186,8 +264,8 @@ namespace Oxide.IO.Serialization
 
         private static Func<object, object> CompileGetter(MemberInfo member)
         {
-            ParameterExpression instance = Expression.Parameter(typeof(object), "instance");
-            UnaryExpression instanceCast = Expression.Convert(instance, member.DeclaringType);
+            var instance = Expression.Parameter(typeof(object), "instance");
+            var instanceCast = Expression.Convert(instance, member.DeclaringType);
 
             Expression memberAccess = member switch
             {
@@ -196,7 +274,7 @@ namespace Oxide.IO.Serialization
                 _ => throw new NotSupportedException($"Unsupported member type: {member.MemberType}")
             };
 
-            UnaryExpression convert = Expression.Convert(memberAccess, typeof(object));
+            var convert = Expression.Convert(memberAccess, typeof(object));
             return Expression.Lambda<Func<object, object>>(convert, instance).Compile();
         }
 
@@ -204,7 +282,7 @@ namespace Oxide.IO.Serialization
         {
             if (member is PropertyInfo prop && !prop.CanWrite)
             {
-                FieldInfo backingField = GetBackingField(prop);
+                var backingField = GetBackingField(prop);
 
                 if (backingField != null)
                 {
@@ -216,9 +294,9 @@ namespace Oxide.IO.Serialization
                 }
             }
 
-            ParameterExpression instance = Expression.Parameter(typeof(object), "instance");
-            ParameterExpression value = Expression.Parameter(typeof(object), "value");
-            UnaryExpression instanceCast = Expression.Convert(instance, member.DeclaringType);
+            var instance = Expression.Parameter(typeof(object), "instance");
+            var value = Expression.Parameter(typeof(object), "value");
+            var instanceCast = Expression.Convert(instance, member.DeclaringType);
             UnaryExpression valueCast;
             Expression setter;
 
@@ -240,17 +318,15 @@ namespace Oxide.IO.Serialization
             return Expression.Lambda<Action<object, object>>(setter, instance, value).Compile();
         }
 
-        public static void Compile()
+        private static void Compile()
         {
-            Type type = typeof(T);
+            var type = typeof(T);
 
-            IEnumerable<MemberInfo> members = type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            var members = type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Where(m => (m.MemberType == MemberTypes.Property || m.MemberType == MemberTypes.Field) && !Attribute.IsDefined(m, typeof(IgnoreDataMemberAttribute)));
 
-            ConverterCache.Clear();
-            SerializableMembers.Clear();
-
-            foreach (MemberInfo member in members)
+            MemberMaps.Clear();
+            foreach (var member in members)
             {
                 CompileMember(member);
             }
@@ -270,6 +346,7 @@ namespace Oxide.IO.Serialization
             }
 
             Type memberType;
+
             if (member is PropertyInfo property)
             {
                 memberType = property.PropertyType;
@@ -296,16 +373,18 @@ namespace Oxide.IO.Serialization
                 }
             }
 
-            
-            Func<object, object> getter = CompileGetter(member);
-            Action<object, object> setter = CompileSetter(member);
-            GettersSetters[member] = new(getter, setter);
-            ConverterCache[member] = TypeDescriptor.GetConverter(memberType);
+            var nullableType = Nullable.GetUnderlyingType(memberType);
 
-            if (!SerializableMembers.Contains(member))
+            if (nullableType != null)
             {
-                SerializableMembers.Add(member);
+                memberType = nullableType;
             }
+
+
+            var getter = CompileGetter(member);
+            var setter = CompileSetter(member);
+            var converter = TypeDescriptor.GetConverter(memberType);
+            MemberMaps.Add(new MemberMap(member, memberType, getter, setter, converter));
         }
 
         #endregion
