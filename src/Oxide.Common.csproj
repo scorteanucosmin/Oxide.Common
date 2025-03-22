@@ -7,7 +7,7 @@
     <Authors>Oxide Team and Contributors</Authors>
     <Copyright>(c) 2013-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
     <Description>Abstraction layer for the Oxide modding framework</Description>
-    <RepositoryUrl>https://github.com/OxideMod/Oxide.Abstractions</RepositoryUrl>
+    <RepositoryUrl>https://github.com/OxideMod/Oxide.Common</RepositoryUrl>
     <PackageIconUrl>icon.png</PackageIconUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
