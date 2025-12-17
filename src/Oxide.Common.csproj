@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
-  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
-  <Import Project="..\netfx.props" />
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk"/>
+  <Import Project="..\netfx.props"/>
   <PropertyGroup>
     <Version>2.0.0</Version>
     <Authors>Oxide Team and Contributors</Authors>
@@ -17,14 +17,35 @@
     <RootNamespace>$(MSBuildProjectName.Replace(" ", "_").Replace(".Common", ""))</RootNamespace>
     <PackageId>Oxide.Common</PackageId>
     <LangVersion>Latest</LangVersion>
+    <PolySharpUsePublicAccessibilityForGeneratedTypes>True</PolySharpUsePublicAccessibilityForGeneratedTypes>
+    <PolySharpIncludeRuntimeSupportedAttributes>True</PolySharpIncludeRuntimeSupportedAttributes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PolySharpExcludeGeneratedTypes>
+      System.Diagnostics.CodeAnalysis.AllowNullAttribute;
+      System.Diagnostics.CodeAnalysis.DisallowNullAttribute;
+      System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute;
+      System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute;
+      System.Diagnostics.CodeAnalysis.MaybeNullAttribute;
+      System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute;
+      System.Diagnostics.CodeAnalysis.NotNullAttribute;
+      System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute;
+      System.Diagnostics.CodeAnalysis.NotNullWhenAttribute;
+      System.Range;
+      System.Index;
+    </PolySharpExcludeGeneratedTypes>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Oxide.References" Version="2.0.*">
       <PrivateAssets>contentfiles;analyzers;build</PrivateAssets>
     </PackageReference>
-    <None Include="..\resources\icon.png" Pack="true" PackagePath="\" />
+    <None Include="..\resources\icon.png" Pack="true" PackagePath="\"/>
+    <PackageReference Include="PolySharp" Version="1.15.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
-  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk"/>
   <Target Name="ChangeAliasesOfStrongNameAssemblies" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
     <ItemGroup>
       <ReferencePath Condition="'%(FileName)' == 'Oxide.References'">
