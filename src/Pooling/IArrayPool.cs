@@ -1,8 +1,8 @@
 ﻿namespace Oxide.Pooling
 {
-    /// <inheritdoc cref="IPoolProvider"/>
+    /// <inheritdoc cref="IPool{T[]}"/>
     /// <typeparam name="T">The item type this pool manages</typeparam>
-    public interface IArrayPoolProvider<out T> : IPoolProvider<T[]>
+    public interface IArrayPool<T> : IPool<T[]>
     {
         /// <summary>
         /// Takes a single <see cref="T"/> array from this pool
