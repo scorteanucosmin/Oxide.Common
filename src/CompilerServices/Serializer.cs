@@ -17,6 +17,15 @@ public class Serializer : ISerializer
         _encoding = new UTF8Encoding(false);
     }
 
+    public void SerializeToStream<T>(MemoryStream memoryStream, T type, int bufferSize) where T : class
+    {
+        using StreamWriter streamWriter = new(memoryStream, _encoding, bufferSize, leaveOpen: true);
+
+        _jsonSerializer.Serialize(streamWriter, type);
+
+        streamWriter.Flush();
+    }
+
     public byte[] Serialize<T>(T type) where T : class
     {
         using MemoryStream memoryStream = new();
