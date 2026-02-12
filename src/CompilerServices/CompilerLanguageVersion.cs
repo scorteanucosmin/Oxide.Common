@@ -1,8 +1,6 @@
-﻿using System;
-
+﻿
 namespace Oxide.CompilerServices;
 
-[Serializable]
 public enum CompilerLanguageVersion
 {
     Latest = 500,

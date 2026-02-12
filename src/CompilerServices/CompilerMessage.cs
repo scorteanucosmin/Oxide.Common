@@ -1,8 +1,8 @@
-﻿using System;
+﻿using System.Collections.Generic;
+
 namespace Oxide.CompilerServices;
 
-[Serializable]
-public sealed class CompilerMessage
+public class CompilerMessage
 {
     public int Id { get; set; }
 
@@ -10,5 +10,5 @@ public sealed class CompilerMessage
 
     public byte[] Data { get; set; }
 
-    public object ExtraData { get; set; }
+    public List<CompilerError>? Errors { get; set; }
 }

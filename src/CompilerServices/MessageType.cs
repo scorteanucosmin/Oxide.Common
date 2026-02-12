@@ -3,7 +3,6 @@
 namespace Oxide.CompilerServices;
 
 [Flags]
-[Serializable]
 public enum MessageType : byte
 {
     Unknown = 0x00,
