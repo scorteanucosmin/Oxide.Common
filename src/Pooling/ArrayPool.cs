@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Oxide.Pooling
@@ -120,7 +120,11 @@ namespace Oxide.Pooling
 
             if (CleanOnReturn)
             {
+#if NETFRAMEWORK
+                for (int i = 0; i < item.Length; i++) item[i] = default;
+#else
                 Array.Clear(item, 0, item.Length);
+#endif
             }
 
             Stack<T[]> store = Pools[item.Length - 1];
@@ -144,7 +148,11 @@ namespace Oxide.Pooling
                     while (store.Count > 0)
                     {
                         T[] array = store.Pop();
+#if NETFRAMEWORK
+                        for (int j = 0; j < array.Length; j++) array[j] = default;
+#else
                         Array.Clear(array, 0, array.Length);
+#endif
                     }
                 }
             }
