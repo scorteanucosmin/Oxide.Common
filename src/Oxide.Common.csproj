@@ -19,6 +19,7 @@
     <LangVersion>Latest</LangVersion>
     <PolySharpUsePublicAccessibilityForGeneratedTypes>True</PolySharpUsePublicAccessibilityForGeneratedTypes>
     <PolySharpIncludeRuntimeSupportedAttributes>True</PolySharpIncludeRuntimeSupportedAttributes>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
     <PolySharpExcludeGeneratedTypes>
