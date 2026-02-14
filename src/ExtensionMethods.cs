@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using Oxide.Pooling;
 
 namespace Oxide
 {
@@ -105,6 +107,144 @@ namespace Oxide
         }
 
 #endif
+
+        public static string JoinValues(this IList<string> collection, char separator)
+        {
+            int listCount = collection.Count;
+            if (listCount == 0)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder stringBuilder = PoolFactory<StringBuilder>.Shared.Take();
+            try
+            {
+                int maxIndex = listCount - 1;
+                for (int i = 0; i < listCount; i++)
+                {
+                    string item = collection[i];
+                    stringBuilder.Append(item);
+
+                    if (i >= maxIndex)
+                    {
+                        continue;
+                    }
+
+                    stringBuilder.Append(separator);
+                }
+
+                return stringBuilder.ToString();
+            }
+            finally
+            {
+                stringBuilder.Length = 0;
+                PoolFactory<StringBuilder>.Shared.Return(stringBuilder);
+            }
+        }
+
+        public static string JoinValues(this IList<string> collection, string separator)
+        {
+            int collectionCount = collection.Count;
+            if (collectionCount == 0)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder stringBuilder = PoolFactory<StringBuilder>.Shared.Take();
+            try
+            {
+                int maxIndex = collectionCount - 1;
+                for (int i = 0; i < collectionCount; i++)
+                {
+                    string item = collection[i];
+                    stringBuilder.Append(item);
+
+                    if (i >= maxIndex)
+                    {
+                        continue;
+                    }
+
+                    stringBuilder.Append(separator);
+                }
+
+                return stringBuilder.ToString();
+            }
+            finally
+            {
+                stringBuilder.Length = 0;
+                PoolFactory<StringBuilder>.Shared.Return(stringBuilder);
+            }
+        }
+
+        public static string JoinValues(this HashSet<string> collection, string separator)
+        {
+            int collectionCount = collection.Count;
+            if (collectionCount == 0)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder stringBuilder = PoolFactory<StringBuilder>.Shared.Take();
+            try
+            {
+                int index = 0;
+                foreach (string item in collection)
+                {
+                    index++;
+
+                    stringBuilder.Append(item);
+
+                    if (index >= collectionCount)
+                    {
+                        continue;
+                    }
+
+                    stringBuilder.Append(separator);
+                }
+
+                return stringBuilder.ToString();
+            }
+            finally
+            {
+                stringBuilder.Length = 0;
+                PoolFactory<StringBuilder>.Shared.Return(stringBuilder);
+            }
+        }
+
+        public static string JoinValues(this HashSet<string> collection, char separator)
+        {
+            int collectionCount = collection.Count;
+            if (collectionCount == 0)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder stringBuilder = PoolFactory<StringBuilder>.Shared.Take();
+            try
+            {
+                int index = 0;
+                foreach (string item in collection)
+                {
+                    index++;
+
+                    stringBuilder.Append(item);
+
+                    if (index >= collectionCount)
+                    {
+                        continue;
+                    }
+
+                    stringBuilder.Append(separator);
+                }
+
+                return stringBuilder.ToString();
+            }
+            finally
+            {
+                stringBuilder.Length = 0;
+                PoolFactory<StringBuilder>.Shared.Return(stringBuilder);
+            }
+        }
 
         #endregion
     }
