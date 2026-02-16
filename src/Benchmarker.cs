@@ -26,10 +26,12 @@ public class Benchmarker : IDisposable
 
         Console.WriteLine($"{_input} took {_stopwatch.Elapsed} [{_stopwatch.ElapsedTicks} ticks]");
 
-        PoolFactory<Stopwatch>.Shared.Return(_stopwatch);
-        PoolFactory<Benchmarker>.Shared.Return(this);
-
+        _stopwatch.Reset();
         _input = null;
+
+        PoolFactory<Stopwatch>.Shared.Return(_stopwatch);
+
         _stopwatch = null;
+        PoolFactory<Benchmarker>.Shared.Return(this);
     }
 }
