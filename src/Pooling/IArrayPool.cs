@@ -1,4 +1,4 @@
-﻿namespace Oxide.Pooling
+namespace Oxide.Pooling
 {
     /// <inheritdoc cref="IPool{T[]}"/>
     /// <typeparam name="T">The item type this pool manages</typeparam>

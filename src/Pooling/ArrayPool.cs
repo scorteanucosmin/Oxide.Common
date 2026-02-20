@@ -121,7 +121,10 @@ namespace Oxide.Pooling
             if (CleanOnReturn)
             {
 #if NETFRAMEWORK
-                for (int i = 0; i < item.Length; i++) item[i] = default;
+                for (int i = 0; i < item.Length; i++)
+                {
+                    item[i] = default;
+                }
 #else
                 Array.Clear(item, 0, item.Length);
 #endif
@@ -149,7 +152,10 @@ namespace Oxide.Pooling
                     {
                         T[] array = store.Pop();
 #if NETFRAMEWORK
-                        for (int j = 0; j < array.Length; j++) array[j] = default;
+                        for (int j = 0; j < array.Length; j++)
+                        {
+                            array[j] = default;
+                        }
 #else
                         Array.Clear(array, 0, array.Length);
 #endif

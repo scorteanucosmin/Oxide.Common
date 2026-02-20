@@ -1,4 +1,4 @@
-﻿
+
 namespace Oxide.CompilerServices;
 
 public enum CompilerLanguageVersion

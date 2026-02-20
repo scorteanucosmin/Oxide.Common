@@ -1,4 +1,4 @@
-﻿namespace Oxide.Pooling
+namespace Oxide.Pooling
 {
     internal class NullArrayPool<T> : IArrayPool<T>
     {

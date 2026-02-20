@@ -1,4 +1,4 @@
-﻿namespace Oxide.CompilerServices;
+namespace Oxide.CompilerServices;
 
 public class CompilerError
 {

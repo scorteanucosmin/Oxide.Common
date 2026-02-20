@@ -1,4 +1,4 @@
-﻿namespace Oxide.Pooling
+namespace Oxide.Pooling
 {
     /// <summary>
     /// Used for pooling items
