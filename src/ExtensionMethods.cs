@@ -108,7 +108,7 @@ namespace Oxide
 
 #endif
 
-        public static string JoinValues(this IList<string> collection, char separator)
+        public static string JoinValues(this IList<string> collection, char separator, bool appendIndex = false)
         {
             int listCount = collection.Count;
             if (listCount == 0)
@@ -123,7 +123,14 @@ namespace Oxide
                 for (int i = 0; i < listCount; i++)
                 {
                     string item = collection[i];
-                    stringBuilder.Append(item);
+                    if (appendIndex)
+                    {
+                        stringBuilder.AppendFormat("[{0}] - {1}", i, item);
+                    }
+                    else
+                    { 
+                        stringBuilder.Append(item);
+                    }
 
                     if (i >= maxIndex)
                     {
@@ -142,7 +149,7 @@ namespace Oxide
             }
         }
 
-        public static string JoinValues(this IList<string> collection, string separator)
+        public static string JoinValues(this IList<string> collection, string separator, bool appendIndex = false)
         {
             int collectionCount = collection.Count;
             if (collectionCount == 0)
@@ -157,7 +164,14 @@ namespace Oxide
                 for (int i = 0; i < collectionCount; i++)
                 {
                     string item = collection[i];
-                    stringBuilder.Append(item);
+                    if (appendIndex)
+                    {
+                        stringBuilder.AppendFormat("[{0}] - {1}", i, item);
+                    }
+                    else
+                    { 
+                        stringBuilder.Append(item);
+                    }
 
                     if (i >= maxIndex)
                     {
@@ -176,7 +190,7 @@ namespace Oxide
             }
         }
 
-        public static string JoinValues(this HashSet<string> collection, string separator)
+        public static string JoinValues(this HashSet<string> collection, string separator, bool appendIndex = false)
         {
             int collectionCount = collection.Count;
             if (collectionCount == 0)
@@ -190,9 +204,16 @@ namespace Oxide
                 int index = 0;
                 foreach (string item in collection)
                 {
+                    if (appendIndex)
+                    {
+                        stringBuilder.AppendFormat("[{0}] - {1}", index, item);
+                    }
+                    else
+                    { 
+                        stringBuilder.Append(item);
+                    }
+                    
                     index++;
-
-                    stringBuilder.Append(item);
 
                     if (index >= collectionCount)
                     {
@@ -211,7 +232,7 @@ namespace Oxide
             }
         }
 
-        public static string JoinValues(this HashSet<string> collection, char separator)
+        public static string JoinValues(this HashSet<string> collection, char separator, bool appendIndex = false)
         {
             int collectionCount = collection.Count;
             if (collectionCount == 0)
@@ -225,9 +246,16 @@ namespace Oxide
                 int index = 0;
                 foreach (string item in collection)
                 {
+                    if (appendIndex)
+                    {
+                        stringBuilder.AppendFormat("[{0}] - {1}", index, item);
+                    }
+                    else
+                    { 
+                        stringBuilder.Append(item);
+                    }
+                    
                     index++;
-
-                    stringBuilder.Append(item);
 
                     if (index >= collectionCount)
                     {
