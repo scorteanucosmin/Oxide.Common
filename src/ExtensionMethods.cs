@@ -125,7 +125,7 @@ namespace Oxide
                     string item = collection[i];
                     if (appendIndex)
                     {
-                        stringBuilder.AppendFormat("[{0}] - {1}", i, item);
+                        stringBuilder.AppendFormat("[{0}] {1}", i, item);
                     }
                     else
                     { 
@@ -166,7 +166,7 @@ namespace Oxide
                     string item = collection[i];
                     if (appendIndex)
                     {
-                        stringBuilder.AppendFormat("[{0}] - {1}", i, item);
+                        stringBuilder.AppendFormat("[{0}] {1}", i, item);
                     }
                     else
                     { 
@@ -206,7 +206,7 @@ namespace Oxide
                 {
                     if (appendIndex)
                     {
-                        stringBuilder.AppendFormat("[{0}] - {1}", index, item);
+                        stringBuilder.AppendFormat("[{0}] {1}", index, item);
                     }
                     else
                     { 
@@ -248,7 +248,7 @@ namespace Oxide
                 {
                     if (appendIndex)
                     {
-                        stringBuilder.AppendFormat("[{0}] - {1}", index, item);
+                        stringBuilder.AppendFormat("[{0}] {1}", index, item);
                     }
                     else
                     { 
